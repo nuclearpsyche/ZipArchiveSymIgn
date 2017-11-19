@@ -66,7 +66,7 @@
 #  define BUFREADCOMMENT            (0x400)
 #endif
 #ifndef VERSIONMADEBY
-#  define VERSIONMADEBY             (0x03<<8) /* platform dependent, this means Unix */
+#  define VERSIONMADEBY             (0x0) /* platform dependent */
 #endif
 
 #ifndef Z_BUFSIZE

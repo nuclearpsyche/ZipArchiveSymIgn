@@ -18,6 +18,7 @@ NSString *const SSZipArchiveErrorDomain = @"SSZipArchiveErrorDomain";
 #define CHUNK 16384
 
 int _zipOpenEntry(zipFile entry, NSString *name, const zip_fileinfo *zipfi, int level, NSString *password, BOOL aes);
+int _zipOpenEntryUnix(zipFile entry, NSString *name, const zip_fileinfo *zipfi, int level, NSString *password, BOOL aes);
 BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
 
 #ifndef API_AVAILABLE
@@ -809,7 +810,7 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
     const uLong BSD_IFLNK = 0120000;
     zipInfo.external_fa = (zipInfo.external_fa & ~(BSD_SFMT << 16)) | (BSD_IFLNK << 16);
     
-    int error = _zipOpenEntry(_zip, fileName, &zipInfo, Z_NO_COMPRESSION, password, 0);
+    int error = _zipOpenEntryUnix(_zip, fileName, &zipInfo, Z_NO_COMPRESSION, password, 0);
     const void *buffer = targetName.fileSystemRepresentation;
     zipWriteInFileInZip(_zip, buffer, (uint32_t)strlen(buffer));
     zipCloseFileInZip(_zip);
@@ -1042,6 +1043,53 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
 int _zipOpenEntry(zipFile entry, NSString *name, const zip_fileinfo *zipfi, int level, NSString *password, BOOL aes)
 {
     return zipOpenNewFileInZip5(entry, name.fileSystemRepresentation, zipfi, NULL, 0, NULL, 0, NULL, 0, 0, Z_DEFLATED, level, 0, -MAX_WBITS, DEF_MEM_LEVEL, Z_DEFAULT_STRATEGY, password.UTF8String, aes);
+}
+
+int _zipOpenEntryUnix(zipFile entry, NSString *name, const zip_fileinfo *zipfi, int level, NSString *password, BOOL aes) {
+    
+    extern int ZEXPORT zipOpenNewFileInZip_internal(zipFile file,
+                                                    const char *filename,
+                                                    const zip_fileinfo *zipfi,
+                                                    const void *extrafield_local,
+                                                    uint16_t size_extrafield_local,
+                                                    const void *extrafield_global,
+                                                    uint16_t size_extrafield_global,
+                                                    const char *comment,
+                                                    uint16_t flag_base,
+                                                    int zip64,
+                                                    uint16_t method,
+                                                    int level,
+                                                    int raw,
+                                                    int windowBits,
+                                                    int memLevel,
+                                                    int strategy,
+                                                    const char *password,
+                                                    int aes,
+                                                    uint16_t version_madeby);
+    
+    zipFile file = entry;
+    const char *filename = name.fileSystemRepresentation;
+    const void *extrafield_local = NULL;
+    uint16_t size_extrafield_local = 0;
+    const void *extrafield_global = NULL;
+    uint16_t size_extrafield_global = 0;
+    const char *comment = NULL;
+    uint16_t flag_base = 0;
+    int zip64 = 0;
+    uint16_t method = Z_DEFLATED;
+    int raw = 0;
+    int windowBits = -MAX_WBITS;
+    int memLevel = DEF_MEM_LEVEL;
+    int strategy = Z_DEFAULT_STRATEGY;
+    
+    // field is described in http://www.pkware.com/documents/casestudies/APPNOTE.TXT section 4.4.2.2
+    int version_madeby = (3 << 8);
+
+    
+    return zipOpenNewFileInZip_internal(file, filename, zipfi, extrafield_local, size_extrafield_local,
+                                        extrafield_global, size_extrafield_global, comment, flag_base,
+                                        zip64, method, level, raw, windowBits, memLevel, strategy,
+                                        password.UTF8String, aes, version_madeby);
 }
 
 #pragma mark - Private tools for file info
