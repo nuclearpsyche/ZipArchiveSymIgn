@@ -648,11 +648,17 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
     return [SSZipArchive createZipFileAtPath:path withFilesAtPaths:paths withPassword:nil];
 }
 + (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath {
-    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath withPassword:nil];
+    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath withPassword:nil ignoreFilesNamed:nil];
+}
++ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath ignoreFilesNamed:(NSArray<NSString*>*)filenames {
+    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath withPassword:nil ignoreFilesNamed:filenames];
 }
 
 + (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath keepParentDirectory:(BOOL)keepParentDirectory {
-    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath keepParentDirectory:keepParentDirectory withPassword:nil];
+    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath keepParentDirectory:keepParentDirectory withPassword:nil ignoreFilesNamed:nil];
+}
++ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath keepParentDirectory:(BOOL)keepParentDirectory ignoreFilesNamed:(NSArray<NSString*>*)filenames {
+    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath keepParentDirectory:keepParentDirectory withPassword:nil ignoreFilesNamed:filenames];
 }
 
 + (BOOL)createZipFileAtPath:(NSString *)path withFilesAtPaths:(NSArray<NSString *> *)paths withPassword:(NSString *)password
@@ -668,16 +674,28 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
     return success;
 }
 
-+ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath withPassword:(nullable NSString *)password {
-    return [SSZipArchive createZipFileAtPath:path withContentsOfDirectory:directoryPath keepParentDirectory:NO withPassword:password];
++ (BOOL)createZipFileAtPath:(NSString *)path
+    withContentsOfDirectory:(NSString *)directoryPath
+               withPassword:(nullable NSString *)password
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames{
+    return [SSZipArchive createZipFileAtPath:path
+                     withContentsOfDirectory:directoryPath
+                         keepParentDirectory:NO
+                                withPassword:password
+                            ignoreFilesNamed:filenames];
 }
 
 
-+ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath keepParentDirectory:(BOOL)keepParentDirectory withPassword:(nullable NSString *)password {
++ (BOOL)createZipFileAtPath:(NSString *)path
+    withContentsOfDirectory:(NSString *)directoryPath
+        keepParentDirectory:(BOOL)keepParentDirectory
+               withPassword:(nullable NSString *)password
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames {
     return [SSZipArchive createZipFileAtPath:path
                      withContentsOfDirectory:directoryPath
                          keepParentDirectory:keepParentDirectory
                                 withPassword:password
+                            ignoreFilesNamed:filenames
                           andProgressHandler:nil
             ];
 }
@@ -686,8 +704,16 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
     withContentsOfDirectory:(NSString *)directoryPath
         keepParentDirectory:(BOOL)keepParentDirectory
                withPassword:(nullable NSString *)password
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames
          andProgressHandler:(void(^ _Nullable)(NSUInteger entryNumber, NSUInteger total))progressHandler {
-    return [self createZipFileAtPath:path withContentsOfDirectory:directoryPath keepParentDirectory:keepParentDirectory compressionLevel:Z_DEFAULT_COMPRESSION password:password AES:YES progressHandler:progressHandler];
+    return [self createZipFileAtPath:path
+             withContentsOfDirectory:directoryPath
+                 keepParentDirectory:keepParentDirectory
+                    compressionLevel:Z_DEFAULT_COMPRESSION
+                            password:password
+                                 AES:YES
+                    ignoreFilesNamed:filenames
+                     progressHandler:progressHandler];
 }
 
 + (BOOL)createZipFileAtPath:(NSString *)path
@@ -696,11 +722,15 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
            compressionLevel:(int)compressionLevel
                    password:(nullable NSString *)password
                         AES:(BOOL)aes
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames
             progressHandler:(void(^ _Nullable)(NSUInteger entryNumber, NSUInteger total))progressHandler {
     
     SSZipArchive *zipArchive = [[SSZipArchive alloc] initWithPath:path];
     BOOL success = [zipArchive open];
     if (success) {
+        // Maintain a list of filenames to ignore
+        NSArray<NSString*> * ignoreFilenames = (filenames != nil) ? filenames : [[NSArray alloc] init];
+        
         // use a local fileManager (queue/thread compatibility)
         NSFileManager *fileManager = [[NSFileManager alloc] init];
         NSDirectoryEnumerator *dirEnumerator = [fileManager enumeratorAtPath:directoryPath];
@@ -713,32 +743,44 @@ BOOL _fileIsSymbolicLink(const unz_file_info *fileInfo);
             NSDictionary* attributes = [fileManager attributesOfItemAtPath:fullFilePath error:NULL];
             NSString* fileType = attributes[NSFileType];
             BOOL isDir = [fileType isEqualToString: NSFileTypeDirectory];
+            BOOL shouldSkip = [ignoreFilenames containsObject: [fileName lastPathComponent]];
             
             if (keepParentDirectory)
             {
                 fileName = [directoryPath.lastPathComponent stringByAppendingPathComponent:fileName];
             }
             
-            if (!isDir) {
-
-                if ([fileType isEqualToString:NSFileTypeRegular]) {
-
-                    success &= [zipArchive writeFileAtPath:fullFilePath withFileName:fileName compressionLevel:compressionLevel password:password AES:aes];
-                    
-                } else if([fileType isEqualToString:NSFileTypeSymbolicLink]) {
-                                        
-                    success &= [zipArchive writeSymlinkAtPath:fullFilePath withFilename:fileName withPassword:password];
-                    
-                }
-            }
-            else
+            if(!shouldSkip)
             {
-                
-                if ([[NSFileManager defaultManager] subpathsOfDirectoryAtPath:fullFilePath error:nil].count == 0)
+                if (!isDir) {
+                    
+                    if ([fileType isEqualToString:NSFileTypeRegular]) {
+                        
+                        success &= [zipArchive writeFileAtPath:fullFilePath
+                                                  withFileName:fileName
+                                              compressionLevel:compressionLevel
+                                                      password:password
+                                                           AES:aes];
+                        
+                    } else if([fileType isEqualToString:NSFileTypeSymbolicLink]) {
+                        
+                        success &= [zipArchive writeSymlinkAtPath:fullFilePath
+                                                     withFilename:fileName
+                                                     withPassword:password];
+                        
+                    }
+                }
+                else
                 {
-                    success &= [zipArchive writeFolderAtPath:fullFilePath withFolderName:fileName withPassword:password];
+                    if ([[NSFileManager defaultManager] subpathsOfDirectoryAtPath:fullFilePath error:nil].count == 0)
+                    {
+                        success &= [zipArchive writeFolderAtPath:fullFilePath
+                                                  withFolderName:fileName
+                                                    withPassword:password];
+                    }
                 }
             }
+            
             complete++;
             if (progressHandler) {
                 progressHandler(complete, total);

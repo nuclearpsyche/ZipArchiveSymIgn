@@ -86,25 +86,42 @@ typedef NS_ENUM(NSInteger, SSZipArchiveErrorCode) {
 // without password
 + (BOOL)createZipFileAtPath:(NSString *)path withFilesAtPaths:(NSArray<NSString *> *)paths;
 + (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath;
++ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath ignoreFilesNamed:(NSArray<NSString*>*)filenames;
 
 + (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath keepParentDirectory:(BOOL)keepParentDirectory;
++ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath keepParentDirectory:(BOOL)keepParentDirectory ignoreFilesNamed:(NSArray<NSString*>*)filenames;
 
 // with optional password, default encryption is AES
 // don't use AES if you need compatibility with native macOS unzip and Archive Utility
-+ (BOOL)createZipFileAtPath:(NSString *)path withFilesAtPaths:(NSArray<NSString *> *)paths withPassword:(nullable NSString *)password;
-+ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath withPassword:(nullable NSString *)password;
-+ (BOOL)createZipFileAtPath:(NSString *)path withContentsOfDirectory:(NSString *)directoryPath keepParentDirectory:(BOOL)keepParentDirectory withPassword:(nullable NSString *)password;
++ (BOOL)createZipFileAtPath:(NSString *)path
+           withFilesAtPaths:(NSArray<NSString *> *)paths
+               withPassword:(nullable NSString *)password;
+
++ (BOOL)createZipFileAtPath:(NSString *)path
+    withContentsOfDirectory:(NSString *)directoryPath
+               withPassword:(nullable NSString *)password
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames;
+
 + (BOOL)createZipFileAtPath:(NSString *)path
     withContentsOfDirectory:(NSString *)directoryPath
         keepParentDirectory:(BOOL)keepParentDirectory
                withPassword:(nullable NSString *)password
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames;
+
++ (BOOL)createZipFileAtPath:(NSString *)path
+    withContentsOfDirectory:(NSString *)directoryPath
+        keepParentDirectory:(BOOL)keepParentDirectory
+               withPassword:(nullable NSString *)password
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames
          andProgressHandler:(void(^ _Nullable)(NSUInteger entryNumber, NSUInteger total))progressHandler;
+
 + (BOOL)createZipFileAtPath:(NSString *)path
     withContentsOfDirectory:(NSString *)directoryPath
         keepParentDirectory:(BOOL)keepParentDirectory
            compressionLevel:(int)compressionLevel
                    password:(nullable NSString *)password
                         AES:(BOOL)aes
+           ignoreFilesNamed:(nullable NSArray<NSString*>*)filenames
             progressHandler:(void(^ _Nullable)(NSUInteger entryNumber, NSUInteger total))progressHandler;
 
 - (instancetype)init NS_UNAVAILABLE;
